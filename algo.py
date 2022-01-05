@@ -6,7 +6,7 @@ import time
 
 class GD:
     def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stop_gap: float = 0.1,
-                 mode: str = "backtracking", lr: float = 0.001, sgd_max_round=300):
+                 mode: str = "backtracking", lr: float = 0.001, sgd_max_round=500):
         self.n = n
         self.m = m  # 200 个数据
         self.A: nd = A
@@ -37,7 +37,11 @@ class GD:
         self.stat_step_count = 0
         self.stat_time = 0
 
-    def _starting_point(self) -> nd:
+    def _starting_point(self, start_mode: str = "0") -> nd:
+        if start_mode == 'random':
+            return np.random.normal(0, 1, self.n)
+        if start_mode == '1':
+            return np.zeros(self.n) + 1
         return np.zeros(self.n)
 
     @staticmethod
@@ -132,7 +136,7 @@ class GD:
 
         t1 = time.time()
         round_count = 0
-        while round_count <= self.max_round:
+        while round_count < self.max_round:
             chosen_ids = np.random.choice(range(0, self.m), self.sgd_m)
             chosen_A = np.array([self.A[i]for i in sorted(chosen_ids)])
             chosen_b = np.array([self.b[i]for i in sorted(chosen_ids)])
@@ -147,16 +151,16 @@ class GD:
         self.stat_time = time.time() - t1
         return self.x
 
-    def run(self, mode: str = None) -> nd:
+    def run(self, train_mode: str = None, start_mode: str = None) -> nd:
         self.stat_improves = []
         self.stat_real_gap = []
         self.stat_step_count = 0
         self.stat_time = 0
-        self.x = self._starting_point()
-        if mode:
-            if mode not in ["backtracking", "exact", "fixed", "sgd"]:
+        self.x = self._starting_point(start_mode)
+        if train_mode:
+            if train_mode not in ["backtracking", "exact", "fixed", "sgd"]:
                 raise ValueError('mode should within ["backtracking", "exact", "fixed", "sgd"]')
-            self.mode = mode
+            self.mode = train_mode
         if self.mode == "sgd":
             return self._sgd()
         else:
