@@ -6,7 +6,7 @@ import time
 
 class GD:
     def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stop_gap: float = 0.1,
-                 mode: str = "backtracking", lr: float = 0.001):
+                 mode: str = "backtracking", lr: float = 0.001, sgd_max_round=300):
         self.n = n
         self.m = m  # 200 个数据
         self.A: nd = A
@@ -28,8 +28,8 @@ class GD:
         self.stop_gap = stop_gap
 
         # sgd params
-        self.sgd_m = 50
-        self.max_round = 100
+        self.sgd_m = 30
+        self.max_round = sgd_max_round
 
         # stats
         self.stat_improves = []
@@ -84,7 +84,6 @@ class GD:
 
     def _gd(self) -> nd:
         t1 = time.time()
-        self.x = self._starting_point()
         improve = 100
         while improve > self.stop_gap:
             self.stat_step_count += 1
@@ -144,6 +143,7 @@ class GD:
             self._update(_t, _direction)
             self.stat_real_gap.append(self.norm(self.x, self.x_gt))
             round_count += 1
+            self.stat_step_count += 1
         self.stat_time = time.time() - t1
         return self.x
 
@@ -163,7 +163,7 @@ class GD:
             return self._gd()
 
     def draw_gaps(self):
-        plt.title(self.mode)
+        plt.title(f"{self.mode}, with n = {self.n}")
         plt.xlabel("step")
         plt.ylabel("gap")
         x_ind = list(range(1, len(self.stat_real_gap)+1))
