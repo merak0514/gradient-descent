@@ -3,8 +3,8 @@ from numpy import ndarray as nd
 
 
 class GD:
-
-    def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stopping_gap: float = 0.1):
+    def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stopping_gap: float = 0.1,
+                 mode: str = "backtracking", lr: float = 0.001):
         self.n = n
         self.m = m  # 200 个数据
         self.A: nd = A
@@ -12,6 +12,10 @@ class GD:
         self.x_gt: nd = x_gt
         self.x: nd = self.starting_point()
         self.last_x: nd = self.x
+        if mode not in ["backtracking", "exact", "fixed"]:
+            raise ValueError('mode should within ["backtracking", "exact", "fixed"]')
+        self.lr = lr  # only useful when mode is set to fixed.
+
 
         # params
         self.beta = 0.3  # param for backtracking
@@ -58,14 +62,20 @@ class GD:
         """
         self.x += t*delta_x
 
+    @staticmethod
+    def normalization(x):
+        x = (x-np.mean(x))/(np.max(x)-np.min(x))
+        return x
+
     def gd(self) -> nd:
         self.x = self.starting_point()
         improve = 100
         while improve > self.stopping_gap:
-            self.last_x = self.x
-            _der = self.f_der(self.x)  # determine the descent direction
-            _t = self.backtracking(_der)  # compute the step size
-            self.update(_t, _der)
+            self.last_x = self.x.copy()
+            _direct = -self.f_der(self.x)  # determine the descent direction
+            _direct_standard = self.normalization(_direct)
+            _t = self.backtracking(_direct_standard)  # compute the step size
+            self.update(_t, _direct_standard)
             improve = self.compute_norm(self.x, self.last_x)
             self.stat_improves.append(improve)
             self.stat_real_gap.append(self.compute_norm(self.x, self.x_gt))
