@@ -12,10 +12,12 @@ class GD:
         self.A: nd = A
         self.b: nd = b
         self.x_gt: nd = x_gt
-        self.x: nd = self.starting_point()
+        self.x: nd = self._starting_point()
         self.last_x: nd = self.x
-        if mode not in ["backtracking", "exact", "fixed"]:
-            raise ValueError('mode should within ["backtracking", "exact", "fixed"]')
+        if mode not in ["backtracking", "exact", "fixed", "sgd"]:
+            raise ValueError('mode should within ["backtracking", "exact", "fixed", "sgd"]')
+        if mode == "exact":
+            raise ValueError('Damn, not implemented yet!')
         self.mode = mode
         self.lr = lr  # only useful when mode is set to fixed.
 
@@ -35,40 +37,40 @@ class GD:
         self.stat_step_count = 0
         self.stat_time = 0
 
-    def starting_point(self) -> nd:
+    def _starting_point(self) -> nd:
         return np.zeros(self.n)
 
     @staticmethod
     def norm(a: nd, b: nd) -> nd:
         return np.linalg.norm(a-b)
 
-    def f(self, x) -> nd:
+    def _f(self, x) -> nd:
         """原函数"""
         return np.linalg.norm(np.matmul(self.A, x)-self.b) ** 2
 
-    def f_der(self, x: nd) -> nd:
+    def _f_der(self, x: nd) -> nd:
         """导函数（除以2之后）"""
         return np.matmul(np.matmul(self.A.T, self.A), x) - np.matmul(self.A.T, self.b)
 
-    def backtracking(self, direction: nd) -> float:
+    def _backtracking(self, direction: nd) -> float:
         """
         backtracking line search
         :param direction: 梯度方向
         """
         t: float = 1
-        judge = self.f(self.x + t * direction) - (
-                self.f(self.x) + self.alpha * t * np.dot(self.f_der(self.x), direction))
+        judge = self._f(self.x + t * direction) - (
+                self._f(self.x) + self.alpha * t * np.dot(self._f_der(self.x), direction))
         while judge >= 0:
             t = self.beta * t
-            judge = self.f(self.x + t * direction) - (
-                        self.f(self.x) + self.alpha * t * np.matmul(self.f_der(self.x).T, direction))
+            judge = self._f(self.x + t * direction) - (
+                    self._f(self.x) + self.alpha * t * np.matmul(self._f_der(self.x).T, direction))
         return t
 
-    def exact(self, direction: nd) -> float:
+    def _exact(self, direction: nd) -> float:
         """exact line search TBD； Edit: don't want to finish this shit."""
         return 1
 
-    def update(self, t: float, delta_x: nd):
+    def _update(self, t: float, delta_x: nd):
         """
         :param t: step size
         :param delta_x: direction
@@ -76,26 +78,26 @@ class GD:
         self.x += t*delta_x
 
     @staticmethod
-    def normalization(x):
+    def _normalization(x):
         x = (x-np.mean(x))/(np.max(x)-np.min(x))
         return x
 
-    def gd(self) -> nd:
+    def _gd(self) -> nd:
         t1 = time.time()
-        self.x = self.starting_point()
+        self.x = self._starting_point()
         improve = 100
         while improve > self.stop_gap:
             self.stat_step_count += 1
             self.last_x = self.x.copy()
-            _direction = -self.f_der(self.x)  # determine the descent direction
+            _direction = -self._f_der(self.x)  # determine the descent direction
 
             if self.mode == "backtracking":
-                _t = self.backtracking(_direction)  # compute the step size
+                _t = self._backtracking(_direction)  # compute the step size
             elif self.mode == "fixed":
                 _t = self.lr
             else:
-                _t = self.exact(_direction)
-            self.update(_t, _direction)
+                _t = self._exact(_direction)
+            self._update(_t, _direction)
             improve = self.norm(self.x, self.last_x)
             self.stat_improves.append(improve)
             self.stat_real_gap.append(self.norm(self.x, self.x_gt))
@@ -104,7 +106,7 @@ class GD:
         self.stat_time = t2-t1
         return self.x
 
-    def sgd(self) -> nd:
+    def _sgd(self) -> nd:
         def sgd_f(A, b, x) -> nd:
             """原函数"""
             return np.linalg.norm(np.matmul(A, x) - b) ** 2
@@ -129,7 +131,7 @@ class GD:
 
             return t
 
-        self.x = self.starting_point()
+        t1 = time.time()
         round_count = 0
         while round_count <= self.max_round:
             chosen_ids = np.random.choice(range(0, self.m), self.sgd_m)
@@ -139,19 +141,34 @@ class GD:
             _direction = -sgd_f_der(chosen_A, chosen_b, self.x)  # determine the descent direction
 
             _t = sgd_backtracking(self, _direction, chosen_A, chosen_b)  # compute the step size
-            self.update(_t, _direction)
+            self._update(_t, _direction)
             self.stat_real_gap.append(self.norm(self.x, self.x_gt))
             round_count += 1
-
+        self.stat_time = time.time() - t1
         return self.x
 
-    def draw_improves(self):
+    def run(self, mode: str = None) -> nd:
+        self.stat_improves = []
+        self.stat_real_gap = []
+        self.stat_step_count = 0
+        self.stat_time = 0
+        self.x = self._starting_point()
+        if mode:
+            if mode not in ["backtracking", "exact", "fixed", "sgd"]:
+                raise ValueError('mode should within ["backtracking", "exact", "fixed", "sgd"]')
+            self.mode = mode
+        if self.mode == "sgd":
+            return self._sgd()
+        else:
+            return self._gd()
+
+    def draw_gaps(self):
         plt.title(self.mode)
         plt.xlabel("step")
         plt.ylabel("gap")
         x_ind = list(range(1, len(self.stat_real_gap)+1))
         plt.plot(x_ind, self.stat_real_gap)
-        plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1))
+        # plt.gca().xaxis.set_major_locator(plt.MultipleLocator(1))
         plt.gca().yaxis.set_major_locator(plt.MultipleLocator(0.3))
         plt.show()
 

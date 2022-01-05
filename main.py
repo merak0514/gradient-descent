@@ -17,8 +17,8 @@ if __name__ == '__main__':
     b = _b_real + eps
     print(f"相关性为{compute_corr(_b_real, b)}")
     gd = GD(n=n, m=m, A=A, b=b, x_gt=x_gt, stop_gap=stop_gap)
-    x_est = gd.gd()
+    x_est = gd._gd()
 
     gd = GD(n=n, m=m, A=A, b=b, x_gt=x_gt, stop_gap=stop_gap)
-    x_est = gd.sgd()
+    x_est = gd._sgd()
 
