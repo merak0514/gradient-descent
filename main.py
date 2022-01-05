@@ -5,7 +5,7 @@ seed(777)
 
 n = 50
 m = 200  # 200 个数据
-stopping_gap = 0.1  # 停止条件
+stop_gap = 0.1  # 停止条件
 
 if __name__ == '__main__':
     x_gt = gen_data_x(n)
@@ -16,5 +16,9 @@ if __name__ == '__main__':
     eps = gen_data_eps(np.sqrt(var_eps), m)
     b = _b_real + eps
     print(f"相关性为{compute_corr(_b_real, b)}")
-    gd = GD(n=n, m=m, A=A, b=b, x_gt=x_gt, stopping_gap=stopping_gap)
+    gd = GD(n=n, m=m, A=A, b=b, x_gt=x_gt, stop_gap=stop_gap)
     x_est = gd.gd()
+
+    gd = GD(n=n, m=m, A=A, b=b, x_gt=x_gt, stop_gap=stop_gap)
+    x_est = gd.sgd()
+

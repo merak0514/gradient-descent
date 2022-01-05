@@ -5,7 +5,7 @@ import time
 
 
 class GD:
-    def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stopping_gap: float = 0.1,
+    def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stop_gap: float = 0.1,
                  mode: str = "backtracking", lr: float = 0.001):
         self.n = n
         self.m = m  # 200 个数据
@@ -23,7 +23,11 @@ class GD:
         # params
         self.beta = 0.3  # param for backtracking
         self.alpha = 0.1  # param for backtracking
-        self.stopping_gap = stopping_gap
+        self.stop_gap = stop_gap
+
+        # sgd params
+        self.sgd_m = 50
+        self.max_round = 100
 
         # stats
         self.stat_improves = []
@@ -57,7 +61,7 @@ class GD:
         while judge >= 0:
             t = self.beta * t
             judge = self.f(self.x + t * direction) - (
-                        self.f(self.x) + self.alpha * t * np.dot(self.f_der(self.x), direction))
+                        self.f(self.x) + self.alpha * t * np.matmul(self.f_der(self.x).T, direction))
         return t
 
     def exact(self, direction: nd) -> float:
@@ -80,7 +84,7 @@ class GD:
         t1 = time.time()
         self.x = self.starting_point()
         improve = 100
-        while improve > self.stopping_gap:
+        while improve > self.stop_gap:
             self.stat_step_count += 1
             self.last_x = self.x.copy()
             _direction = -self.f_der(self.x)  # determine the descent direction
@@ -98,6 +102,47 @@ class GD:
 
         t2 = time.time()
         self.stat_time = t2-t1
+        return self.x
+
+    def sgd(self) -> nd:
+        def sgd_f(A, b, x) -> nd:
+            """原函数"""
+            return np.linalg.norm(np.matmul(A, x) - b) ** 2
+
+        def sgd_f_der(A, b, x) -> nd:
+            """导函数（除以2之后）"""
+            return np.matmul(np.matmul(A.T, A), x) - np.matmul(A.T, b)
+
+        def sgd_backtracking(self, direction: nd, A, b) -> float:
+            """
+            backtracking line search
+            :param direction: 梯度方向
+            """
+            t: float = 1
+            judge = sgd_f(A, b, self.x + t * direction) - (sgd_f(A, b, self.x) +
+                     self.alpha * t * np.dot(sgd_f_der(A, b, self.x), direction))
+            while judge >= 0:
+                t = self.beta * t
+                judge = sgd_f(A, b, self.x + t * direction) - (sgd_f(A, b, self.x) +
+                                                               self.alpha * t * np.dot(sgd_f_der(A, b, self.x),
+                                                                                       direction))
+
+            return t
+
+        self.x = self.starting_point()
+        round_count = 0
+        while round_count <= self.max_round:
+            chosen_ids = np.random.choice(range(0, self.m), self.sgd_m)
+            chosen_A = np.array([self.A[i]for i in sorted(chosen_ids)])
+            chosen_b = np.array([self.b[i]for i in sorted(chosen_ids)])
+            
+            _direction = -sgd_f_der(chosen_A, chosen_b, self.x)  # determine the descent direction
+
+            _t = sgd_backtracking(self, _direction, chosen_A, chosen_b)  # compute the step size
+            self.update(_t, _direction)
+            self.stat_real_gap.append(self.norm(self.x, self.x_gt))
+            round_count += 1
+
         return self.x
 
     def draw_improves(self):
