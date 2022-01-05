@@ -1,6 +1,6 @@
 import numpy as np
 from numpy import ndarray as nd
-
+from matplotlib import pyplot as plt
 
 class GD:
     def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stopping_gap: float = 0.1,
@@ -14,6 +14,7 @@ class GD:
         self.last_x: nd = self.x
         if mode not in ["backtracking", "exact", "fixed"]:
             raise ValueError('mode should within ["backtracking", "exact", "fixed"]')
+        self.mode = mode
         self.lr = lr  # only useful when mode is set to fixed.
 
 
@@ -30,7 +31,7 @@ class GD:
         return np.zeros(self.n)
 
     @staticmethod
-    def compute_norm(a: nd, b: nd) -> nd:
+    def norm(a: nd, b: nd) -> nd:
         return np.linalg.norm(a-b)
 
     def f(self, x) -> nd:
@@ -55,7 +56,11 @@ class GD:
                         self.f(self.x) + self.alpha * t * np.dot(self.f_der(self.x), delta_x))
         return t
 
-    def update(self, t:float, delta_x: nd):
+    def exact(self) -> float:
+        """exact line search TBD"""
+        return 1
+
+    def update(self, t: float, delta_x: nd):
         """
         :param t: step size
         :param delta_x: direction
@@ -73,11 +78,23 @@ class GD:
         while improve > self.stopping_gap:
             self.last_x = self.x.copy()
             _direct = -self.f_der(self.x)  # determine the descent direction
-            _direct_standard = self.normalization(_direct)
-            _t = self.backtracking(_direct_standard)  # compute the step size
-            self.update(_t, _direct_standard)
-            improve = self.compute_norm(self.x, self.last_x)
+
+            if self.mode == "backtracking":
+                _t = self.backtracking(_direct)  # compute the step size
+            elif self.mode == "fixed":
+                _t = self.lr
+            else:
+                _t = self.exact()
+            self.update(_t, _direct)
+            improve = self.norm(self.x, self.last_x)
             self.stat_improves.append(improve)
-            self.stat_real_gap.append(self.compute_norm(self.x, self.x_gt))
+            self.stat_real_gap.append(self.norm(self.x, self.x_gt))
         return self.x
+
+    def draw_improves(self):
+        plt.title("Gap")
+        plt.xlabel("step")
+        plt.ylabel("gap")
+        x_ind = list(range(0, len(self.stat_improves)+1))
+        plt.plot(x_ind, self.stat_improves)
 
