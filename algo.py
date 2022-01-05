@@ -6,7 +6,7 @@ import time
 
 class GD:
     def __init__(self, n, m, A: nd, b: nd, x_gt: nd, stop_gap: float = 0.1,
-                 mode: str = "backtracking", lr: float = 0.001, sgd_max_round=500):
+                 train_mode: str = "backtracking", lr: float = 0.001, sgd_max_round=500):
         self.n = n
         self.m = m  # 200 个数据
         self.A: nd = A
@@ -14,11 +14,12 @@ class GD:
         self.x_gt: nd = x_gt
         self.x: nd = self._starting_point()
         self.last_x: nd = self.x
-        if mode not in ["backtracking", "exact", "fixed", "sgd"]:
-            raise ValueError('mode should within ["backtracking", "exact", "fixed", "sgd"]')
-        if mode == "exact":
+        self.available_modes = ["backtracking", "exact", "fixed", "sgd", "pi", "pseudo_inverse"]
+        if train_mode not in self.available_modes:
+            raise ValueError(f'mode should within {self.available_modes}')
+        if train_mode == "exact":
             raise ValueError('Damn, not implemented yet!')
-        self.mode = mode
+        self.train_mode = train_mode
         self.lr = lr  # only useful when mode is set to fixed.
 
 
@@ -38,7 +39,7 @@ class GD:
         self.stat_time = 0
 
     def _starting_point(self, start_mode: str = "0") -> nd:
-        if start_mode == 'random':
+        if start_mode == 'norm':
             return np.random.normal(0, 1, self.n)
         if start_mode == '1':
             return np.zeros(self.n) + 1
@@ -94,9 +95,9 @@ class GD:
             self.last_x = self.x.copy()
             _direction = -self._f_der(self.x)  # determine the descent direction
 
-            if self.mode == "backtracking":
+            if self.train_mode == "backtracking":
                 _t = self._backtracking(_direction)  # compute the step size
-            elif self.mode == "fixed":
+            elif self.train_mode == "fixed":
                 _t = self.lr
             else:
                 _t = self._exact(_direction)
@@ -151,6 +152,12 @@ class GD:
         self.stat_time = time.time() - t1
         return self.x
 
+    def pseudo_inverse(self)->nd:
+        t1 = time.time()
+        x = np.linalg.inv(self.A.T @ self.A) @ self.A.T @ self.b
+        self.stat_time = time.time()-t1
+        return x
+
     def run(self, train_mode: str = None, start_mode: str = None) -> nd:
         self.stat_improves = []
         self.stat_real_gap = []
@@ -158,16 +165,18 @@ class GD:
         self.stat_time = 0
         self.x = self._starting_point(start_mode)
         if train_mode:
-            if train_mode not in ["backtracking", "exact", "fixed", "sgd"]:
-                raise ValueError('mode should within ["backtracking", "exact", "fixed", "sgd"]')
-            self.mode = train_mode
-        if self.mode == "sgd":
+            if train_mode not in self.available_modes:
+                raise ValueError(f'mode should within {self.available_modes}')
+            self.train_mode = train_mode
+        if self.train_mode == "sgd":
             return self._sgd()
+        elif train_mode == "pseudo_inverse" or train_mode == "pi":
+            return self.pseudo_inverse()
         else:
             return self._gd()
 
     def draw_gaps(self):
-        plt.title(f"{self.mode}, with n = {self.n}")
+        plt.title(f"{self.train_mode}, with n = {self.n}")
         plt.xlabel("step")
         plt.ylabel("gap")
         x_ind = list(range(1, len(self.stat_real_gap)+1))
@@ -176,21 +185,3 @@ class GD:
         plt.gca().yaxis.set_major_locator(plt.MultipleLocator(0.3))
         plt.show()
 
-
-class PseudoInverse:
-    def __init__(self, n, m, A: nd, b: nd, x_gt: nd):
-        self.n = n
-        self.m = m
-        self.A: nd = A
-        self.b: nd = b
-        self.x_gt: nd = x_gt
-
-        # stats
-        self.stat_time = 0
-
-    def compute(self):
-        t1 = time.time()
-        x = np.matmul(np.matmul(np.linalg.inv(
-            np.matmul(self.A.T, self.A)), self.A.T), self.b)
-        self.stat_time = time.time()-t1
-        return x
