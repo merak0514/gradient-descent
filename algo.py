@@ -51,11 +51,11 @@ class GD:
 
     def _f(self, x) -> nd:
         """原函数"""
-        return np.linalg.norm(np.matmul(self.A, x)-self.b) ** 2
+        return np.linalg.norm((self.A @ x)-self.b) ** 2
 
     def _f_der(self, x: nd) -> nd:
         """导函数（除以2之后）"""
-        return np.matmul(np.matmul(self.A.T, self.A), x) - np.matmul(self.A.T, self.b)
+        return self.A.T @ self.A @ x - self.A.T @ self.b
 
     def _backtracking(self, direction: nd) -> float:
         """
@@ -64,11 +64,11 @@ class GD:
         """
         t: float = 1
         judge = self._f(self.x + t * direction) - (
-                self._f(self.x) + self.alpha * t * np.dot(self._f_der(self.x), direction))
+                self._f(self.x) + self.alpha * t * (self._f_der(self.x) @ direction))
         while judge >= 0:
             t = self.beta * t
             judge = self._f(self.x + t * direction) - (
-                    self._f(self.x) + self.alpha * t * np.matmul(self._f_der(self.x).T, direction))
+                    self._f(self.x) + self.alpha * t * (self._f_der(self.x).T @ direction))
         return t
 
     def _exact(self, direction: nd) -> float:
@@ -113,11 +113,11 @@ class GD:
     def _sgd(self) -> nd:
         def sgd_f(A, b, x) -> nd:
             """原函数"""
-            return np.linalg.norm(np.matmul(A, x) - b) ** 2
+            return np.linalg.norm(A @ x - b) ** 2
 
         def sgd_f_der(A, b, x) -> nd:
             """导函数（除以2之后）"""
-            return np.matmul(np.matmul(A.T, A), x) - np.matmul(A.T, b)
+            return A.T @ A @ x - A.T @ b
 
         def sgd_backtracking(self, direction: nd, A, b) -> float:
             """
